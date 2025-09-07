@@ -37,6 +37,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.35.3
         version: 6.38.2
+      '@fontsource/roboto':
+        specifier: ^5.2.6
+        version: 5.2.6
       '@icons-pack/react-simple-icons':
         specifier: ^13.7.0
         version: 13.7.0(react@19.0.0-rc-45804af1-20241021)
@@ -974,6 +977,9 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
+  '@fontsource/roboto@5.2.6':
+    resolution: {integrity: sha512-hzarG7yAhMoP418smNgfY4fO7UmuUEm5JUtbxCoCcFHT0hOJB+d/qAEyoNjz7YkPU5OjM2LM8rJnW8hfm0JLaA==}
 
   '@humanwhocodes/config-array@0.13.0':
     resolution: {integrity: sha512-DZLEEqFWQFiyK6h5YIeynKx7JlvCYWL0cImfSRXZ9l4Sg2efkFGTuFf6vzXjK1cq6IYkU+Eg/JizXw+TD2vRNw==}
@@ -5472,6 +5478,8 @@ snapshots:
       react-dom: 19.0.0-rc-45804af1-20241021(react@19.0.0-rc-45804af1-20241021)
 
   '@floating-ui/utils@0.2.10': {}
+
+  '@fontsource/roboto@5.2.6': {}
 
   '@humanwhocodes/config-array@0.13.0':
     dependencies:
