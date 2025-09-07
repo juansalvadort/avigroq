@@ -46,7 +46,8 @@ test.describe
         data: {
           id: chatId,
           message: TEST_PROMPTS.SKY.MESSAGE,
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'private',
         },
       });
@@ -75,7 +76,8 @@ test.describe
         data: {
           id: chatId,
           message: TEST_PROMPTS.GRASS.MESSAGE,
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'private',
         },
       });
@@ -138,7 +140,8 @@ test.describe
             ],
             createdAt: new Date().toISOString(),
           },
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'private',
         },
       });
@@ -192,7 +195,8 @@ test.describe
             ],
             createdAt: new Date().toISOString(),
           },
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'private',
         },
       });
@@ -242,7 +246,8 @@ test.describe
             ],
             createdAt: new Date().toISOString(),
           },
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'private',
         },
       });
@@ -285,7 +290,8 @@ test.describe
             ],
             createdAt: new Date().toISOString(),
           },
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'private',
         },
       });
@@ -332,7 +338,8 @@ test.describe
             ],
             createdAt: new Date().toISOString(),
           },
-          selectedChatModel: 'chat-model',
+          selectedModelId: 'openai/gpt-4o-mini',
+          apiType: 'gateway-chat',
           selectedVisibilityType: 'public',
         },
       });

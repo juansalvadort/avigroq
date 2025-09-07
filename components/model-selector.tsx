@@ -9,6 +9,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { chatModels } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
@@ -34,6 +36,15 @@ export function ModelSelector({
 
   const availableChatModels = chatModels.filter((chatModel) =>
     availableChatModelIds.includes(chatModel.id),
+  );
+
+  const groupedModels = availableChatModels.reduce<Record<string, typeof availableChatModels>>(
+    (acc, model) => {
+      const list = acc[model.group] ? [...acc[model.group], model] : [model];
+      acc[model.group] = list;
+      return acc;
+    },
+    {},
   );
 
   const selectedChatModel = useMemo(
@@ -63,42 +74,49 @@ export function ModelSelector({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[300px]">
-        {availableChatModels.map((chatModel) => {
-          const { id } = chatModel;
+        {Object.entries(groupedModels).map(([group, models], groupIndex) => (
+          <div key={group}>
+            <DropdownMenuLabel>{group}</DropdownMenuLabel>
+            {models.map((chatModel) => {
+              const { id } = chatModel;
+              return (
+                <DropdownMenuItem
+                  data-testid={`model-selector-item-${id}`}
+                  key={id}
+                  onSelect={() => {
+                    setOpen(false);
 
-          return (
-            <DropdownMenuItem
-              data-testid={`model-selector-item-${id}`}
-              key={id}
-              onSelect={() => {
-                setOpen(false);
+                    startTransition(() => {
+                      setOptimisticModelId(id);
+                      saveChatModelAsCookie(id);
+                    });
+                  }}
+                  data-active={id === optimisticModelId}
+                  asChild
+                >
+                  <button
+                    type="button"
+                    className="gap-4 group/item flex flex-row justify-between items-center w-full"
+                  >
+                    <div className="flex flex-col gap-1 items-start">
+                      <div>{chatModel.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {chatModel.description}
+                      </div>
+                    </div>
 
-                startTransition(() => {
-                  setOptimisticModelId(id);
-                  saveChatModelAsCookie(id);
-                });
-              }}
-              data-active={id === optimisticModelId}
-              asChild
-            >
-              <button
-                type="button"
-                className="gap-4 group/item flex flex-row justify-between items-center w-full"
-              >
-                <div className="flex flex-col gap-1 items-start">
-                  <div>{chatModel.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {chatModel.description}
-                  </div>
-                </div>
-
-                <div className="text-foreground dark:text-foreground opacity-0 group-data-[active=true]/item:opacity-100">
-                  <CheckCircleFillIcon />
-                </div>
-              </button>
-            </DropdownMenuItem>
-          );
-        })}
+                    <div className="text-foreground dark:text-foreground opacity-0 group-data-[active=true]/item:opacity-100">
+                      <CheckCircleFillIcon />
+                    </div>
+                  </button>
+                </DropdownMenuItem>
+              );
+            })}
+            {groupIndex < Object.keys(groupedModels).length - 1 && (
+              <DropdownMenuSeparator />
+            )}
+          </div>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

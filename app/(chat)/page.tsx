@@ -26,7 +26,7 @@ export default async function Page() {
           key={id}
           id={id}
           initialMessages={[]}
-          initialChatModel={DEFAULT_CHAT_MODEL}
+          initialModelId={DEFAULT_CHAT_MODEL}
           initialVisibilityType="private"
           isReadonly={false}
           session={session}
@@ -43,7 +43,7 @@ export default async function Page() {
         key={id}
         id={id}
         initialMessages={[]}
-        initialChatModel={modelIdFromCookie.value}
+        initialModelId={modelIdFromCookie.value}
         initialVisibilityType="private"
         isReadonly={false}
         session={session}

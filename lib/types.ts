@@ -51,7 +51,8 @@ export type ChatMessage = UIMessage<
 >;
 
 export interface Attachment {
-  name: string;
-  url: string;
-  contentType: string;
+  name?: string;
+  url?: string;
+  contentType?: string;
+  responseId?: string;
 }

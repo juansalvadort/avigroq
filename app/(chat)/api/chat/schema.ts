@@ -21,9 +21,12 @@ export const postRequestBodySchema = z.object({
     role: z.enum(['user']),
     parts: z.array(partSchema),
   }),
-  selectedChatModel: z.enum(['chat-model', 'chat-model-reasoning']),
+  selectedModelId: z.string(),
+  apiType: z.enum(['gateway-chat', 'openai-responses']),
+  previousResponseId: z.string().optional(),
   selectedVisibilityType: z.enum(['public', 'private']),
-  files: z.array(z.string()).optional(),
+  vectorStoreIds: z.array(z.string()).optional(),
+  fileFilters: z.record(z.unknown()).optional(),
   instructions: z.string().optional(),
   toolChoice: z
     .union([

@@ -36,19 +36,27 @@
 
 ## Model Providers
 
-This template uses OpenAI models (`gpt-4o-mini`, `o4-mini`) by default.
+This template supports two inference paths:
 
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can switch to direct LLM providers like [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
+- **Gateway (chat.completions)** – via Vercel AI Gateway using `AI_GATEWAY_API_KEY` and `AI_GATEWAY_BASE_URL`.
+- **OpenAI Responses** – direct calls to OpenAI with `OPENAI_API_KEY`.
 
-### OpenAI Authentication
+Models are grouped under “Gateway” and “Responses” in the selector. The default model uses the Gateway path for backward compatibility.
 
-Set the `OPENAI_API_KEY` environment variable in your `.env.local` file. When deploying to Vercel, the OpenAI integration can configure this variable automatically.
+### Environment Variables
+
+| Path | Variables |
+| --- | --- |
+| Gateway | `AI_GATEWAY_API_KEY`, `AI_GATEWAY_BASE_URL` |
+| OpenAI Responses | `OPENAI_API_KEY`, `OPENAI_VECTOR_STORE_IDS` (optional for `file_search`), `ENABLE_RESPONSES_RAW` (optional) |
+
+Configure the variables for the paths you plan to use before deploying to Vercel.
 
 ## Deploy Your Own
 
 You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot&env=AUTH_SECRET,OPENAI_API_KEY&envDescription=Learn+more+about+how+to+get+the+API+Keys+for+the+application&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot%2Fblob%2Fmain%2F.env.example&demo-title=AI+Chatbot&demo-description=An+Open-Source+AI+Chatbot+Template+Built+With+Next.js+and+the+AI+SDK+by+Vercel.&demo-url=https%3A%2F%2Fchat.vercel.ai&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22ai%22%2C%22productSlug%22%3A%22openai%22%2C%22integrationSlug%22%3A%22openai%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22upstash-kv%22%2C%22integrationSlug%22%3A%22upstash%22%7D%2C%7B%22type%22%3A%22blob%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot&env=AUTH_SECRET,OPENAI_API_KEY,OPENAI_VECTOR_STORE_IDS,AI_GATEWAY_API_KEY,AI_GATEWAY_BASE_URL&envDescription=Learn+more+about+how+to+get+the+API+Keys+for+the+application&envLink=https%3A%2F%2Fgithub.com%2Fvercel%2Fai-chatbot%2Fblob%2Fmain%2F.env.example&demo-title=AI+Chatbot&demo-description=An+Open-Source+AI+Chatbot+Template+Built+With+Next.js+and+the+AI+SDK+by+Vercel.&demo-url=https%3A%2F%2Fchat.vercel.ai&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22ai%22%2C%22productSlug%22%3A%22openai%22%2C%22integrationSlug%22%3A%22openai%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%2C%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22upstash-kv%22%2C%22integrationSlug%22%3A%22upstash%22%7D%2C%7B%22type%22%3A%22blob%22%7D%5D)
 
 ## Running locally
 
