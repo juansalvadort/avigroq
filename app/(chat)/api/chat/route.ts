@@ -5,7 +5,11 @@ import {
   smoothStream,
   stepCountIs,
   streamText,
+  type Tool,
 } from 'ai';
+// The openai provider exposes preview tools like `web_search_preview`.
+// eslint-disable-next-line import/no-unresolved
+import { openai as openaiProvider } from '@ai-sdk/openai';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
@@ -174,6 +178,8 @@ export async function POST(request: Request) {
               session,
               dataStream,
             }),
+            web_search_preview:
+              openaiProvider.tools.webSearchPreview() as Tool<never, any>,
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
