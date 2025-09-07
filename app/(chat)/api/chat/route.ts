@@ -37,6 +37,8 @@ import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { VisibilityType } from '@/components/visibility-selector';
 
+export const runtime = 'nodejs';
+
 export const maxDuration = 60;
 
 const DEFAULT_VECTOR_STORE_IDS = (process.env.OPENAI_VECTOR_STORE_IDS || '')
@@ -189,6 +191,16 @@ export async function POST(request: Request) {
           requestSuggestions: requestSuggestions({ session, dataStream }),
         } as const;
 
+        const responsesTools = {
+          web_search_preview: openaiProvider.tools.webSearchPreview(),
+          file_search: openaiProvider.tools.fileSearch({
+            vectorStoreIds: vectorStoreIdsResolved,
+            ...(filters && { filters }),
+          }),
+        } as const;
+
+        const tools = { ...commonTools, ...responsesTools } as const;
+
         const result =
           apiType === 'gateway-chat'
             ? streamText({
@@ -204,14 +216,7 @@ export async function POST(request: Request) {
                 ...base,
                 model: myProvider.languageModel(selectedModelId),
                 reasoning: { effort: 'high' },
-                tools: {
-                  ...commonTools,
-                  web_search_preview: openaiProvider.tools.webSearchPreview(),
-                  file_search: openaiProvider.tools.fileSearch({
-                    vectorStoreIds: vectorStoreIdsResolved,
-                    ...(filters && { filters }),
-                  }),
-                },
+                tools,
                 toolChoice: toolChoice ?? 'auto',
                 providerOptions: {
                   openai: {

@@ -8,11 +8,19 @@ config({
 });
 
 const runMigrate = async () => {
-  if (!process.env.POSTGRES_URL) {
-    throw new Error('POSTGRES_URL is not defined');
+  const url = process.env.POSTGRES_URL;
+  if (!url) {
+    console.log('↪️  Skipping migrations (no POSTGRES_URL).');
+    process.exit(0);
   }
 
-  const connection = postgres(process.env.POSTGRES_URL, { max: 1 });
+  const isLocal = /(^|@)(localhost|127\.0\.0\.1|::1)(:|$)/.test(url);
+  if (isLocal) {
+    console.log('↪️  Skipping migrations (local POSTGRES_URL).');
+    process.exit(0);
+  }
+
+  const connection = postgres(url, { max: 1 });
   const db = drizzle(connection);
 
   console.log('⏳ Running migrations...');
