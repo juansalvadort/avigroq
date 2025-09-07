@@ -6,6 +6,7 @@ import {
   stepCountIs,
   streamText,
 } from 'ai';
+import type { Tool } from 'ai';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
@@ -167,13 +168,13 @@ export async function POST(request: Request) {
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
+            getWeather: getWeather as unknown as Tool<never, any>,
+            createDocument: createDocument({ session, dataStream }) as unknown as Tool<never, any>,
+            updateDocument: updateDocument({ session, dataStream }) as unknown as Tool<never, any>,
             requestSuggestions: requestSuggestions({
               session,
               dataStream,
-            }),
+            }) as unknown as Tool<never, any>,
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
