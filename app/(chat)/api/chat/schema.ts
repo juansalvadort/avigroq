@@ -23,6 +23,14 @@ export const postRequestBodySchema = z.object({
   }),
   selectedChatModel: z.enum(['chat-model', 'chat-model-reasoning']),
   selectedVisibilityType: z.enum(['public', 'private']),
+  files: z.array(z.string()).optional(),
+  instructions: z.string().optional(),
+  toolChoice: z
+    .union([
+      z.literal('auto'),
+      z.object({ type: z.literal('tool'), toolName: z.string() }),
+    ])
+    .optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

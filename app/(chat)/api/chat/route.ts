@@ -24,7 +24,7 @@ import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider } from '@/lib/ai/providers';
+import { myProvider, openaiProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
@@ -39,6 +39,19 @@ import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
 
 export const maxDuration = 60;
+
+const VECTOR_STORE_IDS = (process.env.OPENAI_VECTOR_STORE_IDS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function buildFilenameFilters(files?: string[]) {
+  if (!files || files.length === 0) return undefined as any;
+  return {
+    type: 'or',
+    filters: files.map((value) => ({ type: 'eq', key: 'filename', value })),
+  } as const;
+}
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -78,11 +91,17 @@ export async function POST(request: Request) {
       message,
       selectedChatModel,
       selectedVisibilityType,
+      files,
+      instructions,
+      toolChoice,
     }: {
       id: string;
       message: ChatMessage;
       selectedChatModel: ChatModel['id'];
       selectedVisibilityType: VisibilityType;
+      files?: string[];
+      instructions?: string;
+      toolChoice?: any;
     } = requestBody;
 
     const session = await auth();
@@ -149,6 +168,8 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
+    const filters = buildFilenameFilters(files);
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
@@ -164,6 +185,7 @@ export async function POST(request: Request) {
                   'createDocument',
                   'updateDocument',
                   'requestSuggestions',
+                  'file_search',
                 ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           tools: {
@@ -174,6 +196,18 @@ export async function POST(request: Request) {
               session,
               dataStream,
             }),
+            file_search: openaiProvider.tools.fileSearch({
+              vectorStoreIds: VECTOR_STORE_IDS,
+              maxNumResults: 20,
+              ...(filters && { filters }),
+            }),
+          },
+          toolChoice: toolChoice ?? 'auto',
+          providerOptions: {
+            openai: {
+              ...(instructions && { instructions }),
+              include: ['file_search_call.results'],
+            },
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,

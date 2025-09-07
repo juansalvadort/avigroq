@@ -3,14 +3,16 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from 'ai';
-import { gateway } from '@ai-sdk/gateway';
+import { createOpenAI } from '@ai-sdk/openai';
+import { isTestEnvironment } from '../constants';
 import {
   artifactModel,
   chatModel,
   reasoningModel,
   titleModel,
 } from './models.test';
-import { isTestEnvironment } from '../constants';
+
+export const openaiProvider = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export const myProvider = isTestEnvironment
   ? customProvider({
@@ -23,12 +25,12 @@ export const myProvider = isTestEnvironment
     })
   : customProvider({
       languageModels: {
-        'chat-model': gateway.languageModel('xai/grok-2-vision-1212'),
+        'chat-model': openaiProvider.responses('gpt-4o-mini'),
         'chat-model-reasoning': wrapLanguageModel({
-          model: gateway.languageModel('xai/grok-3-mini-beta'),
+          model: openaiProvider.responses('o4-mini'),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': gateway.languageModel('xai/grok-2-1212'),
-        'artifact-model': gateway.languageModel('xai/grok-2-1212'),
+        'title-model': openaiProvider.responses('gpt-4o-mini'),
+        'artifact-model': openaiProvider.responses('gpt-4.1-mini'),
       },
     });
