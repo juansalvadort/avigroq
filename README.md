@@ -52,6 +52,11 @@ Models are grouped under “Gateway” and “Responses” in the selector. The 
 
 Configure the variables for the paths you plan to use before deploying to Vercel.
 
+### Build scripts
+
+- `pnpm build` – compiles without running database migrations.
+- `pnpm build:with-db` – runs migrations then builds (use in Vercel with a remote `POSTGRES_URL`).
+
 ## Deploy Your Own
 
 You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:

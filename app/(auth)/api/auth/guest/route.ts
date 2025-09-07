@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { signIn } from '@/app/(auth)/auth';
 import { isDevelopmentEnvironment } from '@/lib/constants';
 import { getToken } from 'next-auth/jwt';

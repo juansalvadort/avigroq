@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import type { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
         ...(fileFilters && { filters: fileFilters }),
       },
     ],
-    include: ['output_text', 'output[*].file_search_call.search_results'],
+    include: ['output_text', 'output[*].file_search_call.search_results'] as any,
   });
 
   return Response.json(response);

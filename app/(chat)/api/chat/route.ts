@@ -24,7 +24,7 @@ import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider, openaiProvider } from '@/lib/ai/providers';
+import { gw, openaiProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
         } as const;
 
         const responsesTools = {
-          web_search_preview: openaiProvider.tools.webSearchPreview(),
+          web_search_preview: openaiProvider.tools.webSearchPreview({}),
           file_search: openaiProvider.tools.fileSearch({
             vectorStoreIds: vectorStoreIdsResolved,
             ...(filters && { filters }),
@@ -205,7 +205,7 @@ export async function POST(request: Request) {
           apiType === 'gateway-chat'
             ? streamText({
                 ...base,
-                model: myProvider.languageModel(selectedModelId),
+                model: gw(selectedModelId),
                 experimental_activeTools: selectedModelId.includes('o4')
                   ? []
                   : ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'],
@@ -214,8 +214,7 @@ export async function POST(request: Request) {
               })
             : streamText({
                 ...base,
-                model: myProvider.languageModel(selectedModelId),
-                reasoning: { effort: 'high' },
+                model: openaiProvider.responses(selectedModelId),
                 tools,
                 toolChoice: toolChoice ?? 'auto',
                 providerOptions: {
@@ -223,13 +222,14 @@ export async function POST(request: Request) {
                     ...(instructions && { instructions }),
                     ...(previousResponseId && { previousResponseId }),
                     include: ['file_search_call.results'],
+                    reasoning: { effort: 'high' },
                   },
                 },
               });
 
         result.consumeStream().then(() => {
           responseId =
-            result.response?.providerMetadata?.openai?.responseId as
+            (result as any).response?.providerMetadata?.openai?.responseId as
               | string
               | undefined;
         });
@@ -244,10 +244,12 @@ export async function POST(request: Request) {
       onFinish: async ({ messages }) => {
         if (responseId) {
           const last = messages[messages.length - 1];
-          if (last && last.role === 'assistant') {
-            (last.attachments as any[] | undefined)?.push?.({ responseId });
-            if (!last.attachments) {
-              last.attachments = [{ responseId }] as any;
+          if (last && (last as any).role === 'assistant') {
+            ((last as any).attachments as any[] | undefined)?.push?.({
+              responseId,
+            });
+            if (!(last as any).attachments) {
+              (last as any).attachments = [{ responseId }] as any;
             }
           }
         }

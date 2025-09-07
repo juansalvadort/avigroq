@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { auth } from '@/app/(auth)/auth';
 import { getSuggestionsByDocumentId } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
