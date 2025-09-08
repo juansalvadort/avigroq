@@ -1,12 +1,10 @@
 import { Toaster } from 'sonner';
 import type { Metadata } from 'next';
 // eslint-disable-next-line import/no-unresolved
-import { GeistMono } from 'geist/font/mono';
+import { GeistSans, GeistMono } from 'geist/font';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import './globals.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/700.css';
 import { SessionProvider } from 'next-auth/react';
 
 export const metadata: Metadata = {
@@ -19,6 +17,7 @@ export const viewport = {
   maximumScale: 1, // Disable auto-zoom on mobile Safari
 };
 
+const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 const LIGHT_THEME_COLOR = 'hsl(0 0% 100%)';
@@ -54,7 +53,7 @@ export default async function RootLayout({
       // prop is necessary to avoid the React hydration mismatch warning.
       // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
       suppressHydrationWarning
-      className={geistMono.variable}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
         <script
@@ -63,7 +62,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">
+      <body className="antialiased font-sans">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

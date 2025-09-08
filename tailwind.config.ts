@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Roboto', 'sans-serif'],
+        sans: ['var(--font-geist-sans)'],
         mono: ['var(--font-geist-mono)'],
       },
       screens: {

@@ -98,6 +98,7 @@ export function Chat({
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      setDataStream([]);
     },
     onError: (error) => {
       if (error instanceof ChatSDKError) {
