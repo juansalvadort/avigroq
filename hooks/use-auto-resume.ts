@@ -19,7 +19,7 @@ export function useAutoResume({
   setMessages,
 }: UseAutoResumeParams) {
   const { dataStream } = useDataStream();
-  const processedIndexRef = useRef(0);
+  const processed = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!autoResume) return;
@@ -37,21 +37,34 @@ export function useAutoResume({
   useEffect(() => {
     if (!dataStream) return;
 
-    for (let i = processedIndexRef.current; i < dataStream.length; i++) {
-      const dataPart = dataStream[i];
+    for (const part of dataStream) {
+      if (part.type !== 'data-appendMessage') continue;
 
-      if (dataPart.type === 'data-appendMessage') {
-        const message = JSON.parse(dataPart.data);
-        setMessages((prev) => [...prev, message]);
+      try {
+        const message = JSON.parse(part.data);
+        const key = `${message.id}:${message.parts?.length ?? 0}`;
+        if (processed.current.has(key)) continue;
+        processed.current.add(key);
+
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === message.id);
+          if (idx === -1) {
+            return [...prev, message];
+          }
+
+          const updated = [...prev];
+          updated[idx] = message;
+          return updated;
+        });
+      } catch {
+        // ignore malformed JSON
       }
     }
-
-    processedIndexRef.current = dataStream.length;
   }, [dataStream, setMessages]);
 
   useEffect(() => {
     if (!dataStream || dataStream.length === 0) {
-      processedIndexRef.current = 0;
+      processed.current.clear();
     }
   }, [dataStream]);
 }
