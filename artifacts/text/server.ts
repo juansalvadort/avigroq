@@ -37,19 +37,22 @@ export const textDocumentHandler = createDocumentHandler<'text'>({
   onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = '';
 
+    const model = myProvider.languageModel('artifact-model');
     const { fullStream } = streamText({
-      model: myProvider.languageModel('artifact-model'),
+      model,
       system: updateDocumentPrompt(document.content, 'text'),
       experimental_transform: smoothStream({ chunking: 'word' }),
       prompt: description,
-      providerOptions: {
-        openai: {
-          prediction: {
-            type: 'content',
-            content: document.content,
+      ...( (model as any).modelId?.startsWith('openai/') && {
+        providerOptions: {
+          openai: {
+            prediction: {
+              type: 'content',
+              content: document.content,
+            },
           },
         },
-      },
+      }),
     });
 
     for await (const delta of fullStream) {

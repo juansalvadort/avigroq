@@ -29,6 +29,6 @@ export const myProvider = isTestEnvironment
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
         'title-model': gateway.languageModel('xai/grok-2-1212'),
-        'artifact-model': gateway.languageModel('xai/grok-2-1212'),
+        'artifact-model': gateway.languageModel('openai/gpt-4o-mini'),
       },
     });
