@@ -16,6 +16,8 @@ import {
   getMessagesByChatId,
   saveChat,
   saveMessages,
+  getPreviousResponseId,
+  setPreviousResponseId,
 } from '@/lib/db/queries';
 import { convertToUIMessages, generateUUID } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
@@ -24,7 +26,8 @@ import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider } from '@/lib/ai/providers';
+import { resolveModel } from '@/lib/ai/models';
+import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
@@ -149,29 +152,33 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
+    const previousResponseId = await getPreviousResponseId(id);
+
     const providerOptions =
       selectedChatModel === 'gpt-4o-mini' || selectedChatModel === 'o4-mini'
         ? {
             openai: {
-              parallelToolCalls: false,
-              store: false,
-              user: session.user.id,
-              reasoningSummary: 'auto',
+              store: true,
               textVerbosity: 'medium',
+              reasoningSummary: 'auto',
+              serviceTier: 'auto',
+              previousResponseId,
               ...(selectedChatModel === 'o4-mini'
                 ? {
                     include: ['reasoning.encrypted_content'],
                     reasoningEffort: 'medium',
                   }
                 : {}),
-            },
+            } satisfies OpenAIResponsesProviderOptions,
           }
         : undefined;
 
+    let responseId: string | undefined;
+
     const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
+      execute: async ({ writer: dataStream }) => {
         const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
+          model: resolveModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
           providerOptions,
@@ -209,9 +216,15 @@ export async function POST(request: Request) {
             sendReasoning: true,
           }),
         );
+
+        const { providerMetadata } = await result;
+        responseId = providerMetadata?.openai?.responseId as string | undefined;
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
+        if (responseId) {
+          await setPreviousResponseId(id, responseId);
+        }
         await saveMessages({
           messages: messages.map((message) => ({
             id: message.id,

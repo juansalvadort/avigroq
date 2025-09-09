@@ -16,10 +16,12 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
+    "smoke:openai": "tsx scripts/smoke-openai.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^1.0.15",
+    "@ai-sdk/openai": "^2.0.27",
     "@ai-sdk/provider": "2.0.0",
     "@ai-sdk/react": "2.0.26",
     "@ai-sdk/xai": "2.0.13",
