@@ -149,12 +149,32 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
+    const providerOptions =
+      selectedChatModel === 'gpt-4o-mini' || selectedChatModel === 'o4-mini'
+        ? {
+            openai: {
+              parallelToolCalls: false,
+              store: false,
+              user: session.user.id,
+              reasoningSummary: 'auto',
+              textVerbosity: 'medium',
+              ...(selectedChatModel === 'o4-mini'
+                ? {
+                    include: ['reasoning.encrypted_content'],
+                    reasoningEffort: 'medium',
+                  }
+                : {}),
+            },
+          }
+        : undefined;
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: convertToModelMessages(uiMessages),
+          providerOptions,
           stopWhen: stepCountIs(5),
           experimental_activeTools:
             selectedChatModel === 'chat-model-reasoning' ||
