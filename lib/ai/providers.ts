@@ -4,23 +4,22 @@ import {
   wrapLanguageModel,
 } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
-import {
-  artifactModel,
-  chatModel,
-  reasoningModel,
-  titleModel,
-} from './models.test';
 import { isTestEnvironment } from '../constants';
+
+let testModels: typeof import('../../tests/models') | undefined;
+if (isTestEnvironment) {
+  testModels = await import('../../tests/models');
+}
 
 export const myProvider = isTestEnvironment
   ? customProvider({
       languageModels: {
-        'chat-model': chatModel,
-        'chat-model-reasoning': reasoningModel,
-        'gpt-4o-mini': chatModel,
-        'o4-mini': reasoningModel,
-        'title-model': titleModel,
-        'artifact-model': artifactModel,
+        'chat-model': testModels?.chatModel,
+        'chat-model-reasoning': testModels?.reasoningModel,
+        'gpt-4o-mini': testModels?.chatModel,
+        'o4-mini': testModels?.reasoningModel,
+        'title-model': testModels?.titleModel,
+        'artifact-model': testModels?.artifactModel,
       },
     })
   : customProvider({
