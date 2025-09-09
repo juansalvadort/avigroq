@@ -4,6 +4,7 @@ import {
   wrapLanguageModel,
 } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
+import { openai } from '@ai-sdk/openai';
 import {
   artifactModel,
   chatModel,
@@ -11,6 +12,10 @@ import {
   titleModel,
 } from './models.test';
 import { isTestEnvironment } from '../constants';
+
+// Read the OpenAI API key from the environment. The `openai` provider
+// uses the `OPENAI_API_KEY` variable to authenticate requests.
+const _openaiApiKey = process.env.OPENAI_API_KEY;
 
 export const myProvider = isTestEnvironment
   ? customProvider({
@@ -30,5 +35,7 @@ export const myProvider = isTestEnvironment
         }),
         'title-model': gateway.languageModel('xai/grok-2-1212'),
         'artifact-model': gateway.languageModel('xai/grok-2-1212'),
+        'gpt-4o': openai.languageModel('gpt-4o'),
+        'gpt-4.1': openai.languageModel('gpt-4.1'),
       },
     });
