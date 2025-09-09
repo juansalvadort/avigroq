@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
 import { useDataStream } from '@/components/data-stream-provider';
+import { upsertMessage } from './messages-reducer';
 
 export interface UseAutoResumeParams {
   autoResume: boolean;
@@ -46,16 +47,7 @@ export function useAutoResume({
         if (processed.current.has(key)) continue;
         processed.current.add(key);
 
-        setMessages((prev) => {
-          const idx = prev.findIndex((m) => m.id === message.id);
-          if (idx === -1) {
-            return [...prev, message];
-          }
-
-          const updated = [...prev];
-          updated[idx] = message;
-          return updated;
-        });
+        setMessages((prev) => upsertMessage(prev, message));
       } catch {
         // ignore malformed JSON
       }

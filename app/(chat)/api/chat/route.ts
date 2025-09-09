@@ -20,6 +20,7 @@ import { geolocation } from '@vercel/functions';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { VisibilityType } from '@/components/visibility-selector';
+import { upsertMessage } from '@/hooks/messages-reducer';
 
 export const runtime = 'nodejs';
 
@@ -119,7 +120,10 @@ export async function POST(request: Request) {
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
-    const messages = [...convertToUIMessages(messagesFromDb), message];
+    const messages = upsertMessage(
+      convertToUIMessages(messagesFromDb),
+      message,
+    );
 
     const { longitude, latitude, city, country } = geolocation(request);
 
