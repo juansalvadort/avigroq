@@ -4,6 +4,7 @@ import {
   wrapLanguageModel,
 } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
+import { openai } from '@ai-sdk/openai';
 import {
   artifactModel,
   chatModel,
@@ -32,3 +33,9 @@ export const myProvider = isTestEnvironment
         'artifact-model': gateway.languageModel('xai/grok-2-1212'),
       },
     });
+
+export const openaiProvider = customProvider({
+  languageModels: {
+    'chat-model': openai.responses('gpt-4o-mini'),
+  },
+});
