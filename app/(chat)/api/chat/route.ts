@@ -1,38 +1,22 @@
-import {
-  convertToModelMessages,
-  createUIMessageStream,
-  JsonToSseTransformStream,
-  smoothStream,
-  stepCountIs,
-  streamText,
-} from 'ai';
+import { convertToModelMessages, smoothStream, stepCountIs, streamText } from 'ai';
+import crypto from 'node:crypto';
 import { auth, type UserType } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
-  createStreamId,
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
   getMessagesByChatId,
-  saveChat,
+  saveChat as saveChatMetadata,
   saveMessages,
 } from '@/lib/db/queries';
-import { convertToUIMessages, generateUUID } from '@/lib/utils';
+import { convertToUIMessages } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
-import { createDocument } from '@/lib/ai/tools/create-document';
-import { updateDocument } from '@/lib/ai/tools/update-document';
-import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
-import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
 import { gw, openaiProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
-import {
-  createResumableStreamContext,
-  type ResumableStreamContext,
-} from 'resumable-stream';
-import { after } from 'next/server';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { VisibilityType } from '@/components/visibility-selector';
@@ -46,26 +30,23 @@ const DEFAULT_VECTOR_STORE_IDS = (process.env.OPENAI_VECTOR_STORE_IDS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
-let globalStreamContext: ResumableStreamContext | null = null;
-
-export function getStreamContext() {
-  if (!globalStreamContext) {
-    try {
-      globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
-      });
-    } catch (error: any) {
-      if (error.message.includes('REDIS_URL')) {
-        console.log(
-          ' > Resumable streams are disabled due to missing REDIS_URL',
-        );
-      } else {
-        console.error(error);
-      }
-    }
-  }
-
-  return globalStreamContext;
+async function saveChat({
+  id,
+  messages,
+}: {
+  id: string;
+  messages: ChatMessage[];
+}) {
+  await saveMessages({
+    messages: messages.map((message) => ({
+      id: message.id,
+      role: message.role,
+      parts: message.parts,
+      createdAt: new Date(),
+      attachments: (message as any).attachments ?? [],
+      chatId: id,
+    })),
+  });
 }
 
 export async function POST(request: Request) {
@@ -89,7 +70,6 @@ export async function POST(request: Request) {
       vectorStoreIds,
       fileFilters,
       instructions,
-      toolChoice,
     }: {
       id: string;
       message: ChatMessage;
@@ -100,7 +80,6 @@ export async function POST(request: Request) {
       vectorStoreIds?: string[];
       fileFilters?: any;
       instructions?: string;
-      toolChoice?: any;
     } = requestBody;
 
     const session = await auth();
@@ -127,7 +106,7 @@ export async function POST(request: Request) {
         message,
       });
 
-      await saveChat({
+      await saveChatMetadata({
         id,
         userId: session.user.id,
         title,
@@ -140,7 +119,7 @@ export async function POST(request: Request) {
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+    const messages = [...convertToUIMessages(messagesFromDb), message];
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -164,125 +143,51 @@ export async function POST(request: Request) {
       ],
     });
 
-    const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
-
     const vectorStoreIdsResolved = vectorStoreIds ?? DEFAULT_VECTOR_STORE_IDS;
     const filters = fileFilters;
-    let responseId: string | undefined;
 
-    const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
-        const base = {
-          system: systemPrompt({ selectedModelId, requestHints }),
-          messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_transform: smoothStream({ chunking: 'word' }),
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
-        } as const;
-
-        const commonTools = {
-          getWeather,
-          createDocument: createDocument({ session, dataStream }),
-          updateDocument: updateDocument({ session, dataStream }),
-          requestSuggestions: requestSuggestions({ session, dataStream }),
-        } as const;
-
-        const responsesTools = {
-          web_search_preview: openaiProvider.tools.webSearchPreview({}),
-          file_search: openaiProvider.tools.fileSearch({
-            vectorStoreIds: vectorStoreIdsResolved,
-            ...(filters && { filters }),
-          }),
-        } as const;
-
-        const tools = { ...commonTools, ...responsesTools } as const;
-
-        const result =
-          apiType === 'gateway-chat'
-            ? streamText({
-                ...base,
-                model: gw(selectedModelId),
-                experimental_activeTools: selectedModelId.includes('o4')
-                  ? []
-                  : ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'],
-                tools: commonTools,
-                toolChoice: toolChoice ?? 'auto',
-              })
-            : streamText({
-                ...base,
-                model: openaiProvider.responses(selectedModelId),
-                tools,
-                toolChoice: toolChoice ?? 'auto',
-                providerOptions: {
-                  openai: {
-                    ...(instructions && { instructions }),
-                    ...(previousResponseId && { previousResponseId }),
-                    include: ['file_search_call.results'],
-                    reasoning: { effort: 'high' },
-                  },
-                },
-              });
-
-        result.consumeStream().then(() => {
-          responseId =
-            (result as any).response?.providerMetadata?.openai?.responseId as
-              | string
-              | undefined;
-        });
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-            originalMessages: uiMessages,
-            generateMessageId: generateUUID,
-          }),
-        );
+    const base = {
+      system: systemPrompt({ selectedModelId, requestHints }),
+      messages: convertToModelMessages(messages),
+      stopWhen: stepCountIs(5),
+      experimental_transform: smoothStream({ chunking: 'word' }),
+      experimental_telemetry: {
+        isEnabled: isProductionEnvironment,
+        functionId: 'stream-text',
       },
-      generateId: generateUUID,
-      onFinish: async ({ messages }) => {
-        if (responseId) {
-          const last = messages[messages.length - 1];
-          if (last && (last as any).role === 'assistant') {
-            ((last as any).attachments as any[] | undefined)?.push?.({
-              responseId,
-            });
-            if (!(last as any).attachments) {
-              (last as any).attachments = [{ responseId }] as any;
-            }
-          }
-        }
+    } as const;
 
-        await saveMessages({
-          messages: messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
-            createdAt: new Date(),
-            attachments: (message as any).attachments ?? [],
-            chatId: id,
-          })),
-        });
-      },
-      onError: () => {
-        return 'Oops, an error occurred!';
+    const result =
+      apiType === 'gateway-chat'
+        ? streamText({
+            ...base,
+            model: gw(selectedModelId),
+          })
+        : streamText({
+            ...base,
+            model: openaiProvider.responses(selectedModelId),
+            providerOptions: {
+              openai: {
+                ...(instructions && { instructions }),
+                ...(previousResponseId && { previousResponseId }),
+                include: ['file_search_call.results'],
+                reasoning: { effort: 'high' },
+                ...(filters && { filters }),
+                ...(vectorStoreIdsResolved && {
+                  vectorStoreIds: vectorStoreIdsResolved,
+                }),
+              },
+            },
+          });
+
+    return result.toUIMessageStreamResponse({
+      originalMessages: messages,
+      generateMessageId: ((part: any) =>
+        part.id ?? part.message?.id ?? crypto.randomUUID()) as any,
+      onFinish: async ({ messages: finalMessages }) => {
+        await saveChat({ id, messages: finalMessages });
       },
     });
-
-    const streamContext = getStreamContext();
-
-    if (streamContext) {
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream()),
-        ),
-      );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    }
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();

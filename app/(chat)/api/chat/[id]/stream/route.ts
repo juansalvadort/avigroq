@@ -9,7 +9,6 @@ import type { Chat } from '@/lib/db/schema';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
-import { getStreamContext } from '../../route';
 import { differenceInSeconds } from 'date-fns';
 
 export async function GET(
@@ -18,7 +17,7 @@ export async function GET(
 ) {
   const { id: chatId } = await params;
 
-  const streamContext = getStreamContext();
+  const streamContext: any = null;
   const resumeRequestedAt = new Date();
 
   if (!streamContext) {
