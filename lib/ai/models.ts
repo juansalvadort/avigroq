@@ -1,3 +1,6 @@
+import { resolveOpenAIModel, myProvider } from './providers';
+import { isTestEnvironment } from '../constants';
+
 export const DEFAULT_CHAT_MODEL: string = 'chat-model';
 
 export interface ChatModel {
@@ -29,3 +32,15 @@ export const chatModels: Array<ChatModel> = [
       'OpenAI reasoning model optimized for step-by-step problem solving',
   },
 ];
+
+// [MODEL_RESOLVER]
+export function resolveModel(selected: string) {
+  const openaiIds = new Set(['gpt-5', 'gpt-5-mini', 'o4-mini', 'gpt-4o-mini']);
+  if (selected.startsWith('openai/') || openaiIds.has(selected)) {
+    if (isTestEnvironment) {
+      return myProvider.languageModel(selected.replace(/^openai\//, ''));
+    }
+    return resolveOpenAIModel(selected.replace(/^openai\//, ''));
+  }
+  return myProvider.languageModel(selected);
+}

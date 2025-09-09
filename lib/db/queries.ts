@@ -208,6 +208,39 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
+// [DB_PREV_RESPONSE_QUERY]
+export async function getPreviousResponseId(chatId: string) {
+  try {
+    const [row] = await db
+      .select({ previousResponseId: chat.previousResponseId })
+      .from(chat)
+      .where(eq(chat.id, chatId));
+    return row?.previousResponseId ?? undefined;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get previous response id',
+    );
+  }
+}
+
+export async function setPreviousResponseId(
+  chatId: string,
+  responseId: string,
+) {
+  try {
+    await db
+      .update(chat)
+      .set({ previousResponseId: responseId })
+      .where(eq(chat.id, chatId));
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to set previous response id',
+    );
+  }
+}
+
 export async function saveMessages({
   messages,
 }: {
