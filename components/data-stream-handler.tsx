@@ -10,6 +10,7 @@ export function DataStreamHandler() {
 
   const { artifact, setArtifact, setMetadata } = useArtifact();
   const lastProcessedIndex = useRef(-1);
+  const lastProcessedId = useRef(0);
 
   useEffect(() => {
     if (!dataStream?.length) return;
@@ -18,6 +19,16 @@ export function DataStreamHandler() {
     lastProcessedIndex.current = dataStream.length - 1;
 
     newDeltas.forEach((delta) => {
+      if (delta.id) {
+        const id = Number(delta.id);
+        if (!Number.isNaN(id)) {
+          if (id <= lastProcessedId.current) {
+            return;
+          }
+          lastProcessedId.current = id;
+        }
+      }
+
       const artifactDefinition = artifactDefinitions.find(
         (artifactDefinition) => artifactDefinition.kind === artifact.kind,
       );
