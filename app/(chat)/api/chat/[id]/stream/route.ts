@@ -12,10 +12,13 @@ import { getStreamContext } from '../../route';
 import { differenceInSeconds } from 'date-fns';
 
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: chatId } = await params;
+
+  const cursor = request.headers.get('x-cursor');
+  const skip = cursor ? Number(cursor) : undefined;
 
   const streamContext = getStreamContext();
   const resumeRequestedAt = new Date();
@@ -66,8 +69,10 @@ export async function GET(
     execute: () => {},
   });
 
-  const stream = await streamContext.resumableStream(recentStreamId, () =>
-    emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+  const stream = await streamContext.resumableStream(
+    recentStreamId,
+    () => emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+    skip,
   );
 
   /*

@@ -2,11 +2,11 @@
 
 import { DefaultChatTransport } from 'ai';
 import { useChat } from '@ai-sdk/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
 import type { Vote } from '@/lib/db/schema';
-import { fetcher, fetchWithErrorHandlers, generateUUID, cn } from '@/lib/utils';
+import { fetcher, fetchWithErrorHandlers, generateUUID } from '@/lib/utils';
 import { Artifact } from './artifact';
 import { MultimodalInput } from './multimodal-input';
 import { Messages } from './messages';
@@ -48,6 +48,8 @@ export function Chat({
   const { mutate } = useSWRConfig();
   const { setDataStream } = useDataStream();
 
+  const lastDataCursor = useRef(0);
+
   const [input, setInput] = useState<string>('');
 
   const {
@@ -57,7 +59,7 @@ export function Chat({
     status,
     stop,
     regenerate,
-    resumeStream,
+    resumeStream: baseResumeStream,
   } = useChat<ChatMessage>({
     id,
     messages: initialMessages,
@@ -79,6 +81,12 @@ export function Chat({
       },
     }),
     onData: (dataPart) => {
+      if (dataPart.id) {
+        const id = Number(dataPart.id);
+        if (!Number.isNaN(id) && id > lastDataCursor.current) {
+          lastDataCursor.current = id;
+        }
+      }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
@@ -93,6 +101,11 @@ export function Chat({
       }
     },
   });
+
+  const resumeStream = () =>
+    baseResumeStream({
+      headers: { 'x-cursor': String(lastDataCursor.current) },
+    });
 
   const searchParams = useSearchParams();
   const query = searchParams.get('query');
