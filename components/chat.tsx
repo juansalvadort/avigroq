@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
 import type { Vote } from '@/lib/db/schema';
-import { fetcher, fetchWithErrorHandlers, generateUUID, cn } from '@/lib/utils';
+import { fetcher, fetchWithErrorHandlers, generateUUID, } from '@/lib/utils';
+import { chatModels } from '@/lib/ai/models';
 import { Artifact } from './artifact';
 import { MultimodalInput } from './multimodal-input';
 import { Messages } from './messages';
@@ -26,7 +27,7 @@ import { useDataStream } from './data-stream-provider';
 export function Chat({
   id,
   initialMessages,
-  initialChatModel,
+  initialModelId,
   initialVisibilityType,
   isReadonly,
   session,
@@ -34,7 +35,7 @@ export function Chat({
 }: {
   id: string;
   initialMessages: ChatMessage[];
-  initialChatModel: string;
+  initialModelId: string;
   initialVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
@@ -67,11 +68,25 @@ export function Chat({
       api: '/api/chat',
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
+        const selectedModel = chatModels.find((m) => m.id === initialModelId);
+        const lastAssistant = [...messages]
+          .reverse()
+          .find((m) => m.role === 'assistant');
+        const previousResponseId = (lastAssistant?.attachments as any[] | undefined)?.find(
+          (a) => a.responseId,
+        )?.responseId;
+
         return {
           body: {
             id,
             message: messages.at(-1),
-            selectedChatModel: initialChatModel,
+            selectedModelId: selectedModel?.id ?? initialModelId,
+            apiType:
+              selectedModel?.apiType ??
+              (initialModelId.includes('/')
+                ? 'gateway-chat'
+                : 'openai-responses'),
+            previousResponseId,
             selectedVisibilityType: visibilityType,
             ...body,
           },
@@ -83,6 +98,7 @@ export function Chat({
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      setDataStream([]);
     },
     onError: (error) => {
       if (error instanceof ChatSDKError) {
@@ -161,7 +177,7 @@ export function Chat({
               setMessages={setMessages}
               sendMessage={sendMessage}
               selectedVisibilityType={visibilityType}
-              selectedModelId={initialChatModel}
+              selectedModelId={initialModelId}
             />
           )}
         </div>
@@ -182,7 +198,7 @@ export function Chat({
         votes={votes}
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}
-        selectedModelId={initialChatModel}
+        selectedModelId={initialModelId}
       />
     </>
   );

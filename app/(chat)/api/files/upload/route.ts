@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';

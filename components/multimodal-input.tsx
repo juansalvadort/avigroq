@@ -126,9 +126,9 @@ function PureMultimodalInput({
       parts: [
         ...attachments.map((attachment) => ({
           type: 'file' as const,
-          url: attachment.url,
-          name: attachment.name,
-          mediaType: attachment.contentType,
+          url: attachment.url ?? '',
+          name: attachment.name ?? '',
+          mediaType: attachment.contentType ?? '',
         })),
         {
           type: 'text',

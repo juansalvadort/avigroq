@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
 import { useDataStream } from '@/components/data-stream-provider';
@@ -19,6 +19,7 @@ export function useAutoResume({
   setMessages,
 }: UseAutoResumeParams) {
   const { dataStream } = useDataStream();
+  const processed = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!autoResume) return;
@@ -35,13 +36,35 @@ export function useAutoResume({
 
   useEffect(() => {
     if (!dataStream) return;
-    if (dataStream.length === 0) return;
 
-    const dataPart = dataStream[0];
+    for (const part of dataStream) {
+      if (part.type !== 'data-appendMessage') continue;
 
-    if (dataPart.type === 'data-appendMessage') {
-      const message = JSON.parse(dataPart.data);
-      setMessages([...initialMessages, message]);
+      try {
+        const message = JSON.parse(part.data);
+        const key = `${message.id}:${message.parts?.length ?? 0}`;
+        if (processed.current.has(key)) continue;
+        processed.current.add(key);
+
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === message.id);
+          if (idx === -1) {
+            return [...prev, message];
+          }
+
+          const updated = [...prev];
+          updated[idx] = message;
+          return updated;
+        });
+      } catch {
+        // ignore malformed JSON
+      }
     }
-  }, [dataStream, initialMessages, setMessages]);
+  }, [dataStream, setMessages]);
+
+  useEffect(() => {
+    if (!dataStream || dataStream.length === 0) {
+      processed.current.clear();
+    }
+  }, [dataStream]);
 }

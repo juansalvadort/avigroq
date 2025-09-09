@@ -48,10 +48,11 @@ export type ChatMessage = UIMessage<
   MessageMetadata,
   CustomUIDataTypes,
   ChatTools
->;
+> & { attachments?: Attachment[] };
 
 export interface Attachment {
-  name: string;
-  url: string;
-  contentType: string;
+  name?: string;
+  url?: string;
+  contentType?: string;
+  responseId?: string;
 }

@@ -1,34 +1,45 @@
-import {
-  customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
-} from 'ai';
-import { gateway } from '@ai-sdk/gateway';
-import {
-  artifactModel,
-  chatModel,
-  reasoningModel,
-  titleModel,
-} from './models.test';
+import { customProvider } from 'ai';
+import { gateway as gw } from '@ai-sdk/gateway';
+import { createOpenAI } from '@ai-sdk/openai';
 import { isTestEnvironment } from '../constants';
 
-export const myProvider = isTestEnvironment
-  ? customProvider({
-      languageModels: {
-        'chat-model': chatModel,
-        'chat-model-reasoning': reasoningModel,
-        'title-model': titleModel,
-        'artifact-model': artifactModel,
-      },
-    })
-  : customProvider({
-      languageModels: {
-        'chat-model': gateway.languageModel('xai/grok-2-vision-1212'),
-        'chat-model-reasoning': wrapLanguageModel({
-          model: gateway.languageModel('xai/grok-3-mini-beta'),
-          middleware: extractReasoningMiddleware({ tagName: 'think' }),
-        }),
-        'title-model': gateway.languageModel('xai/grok-2-1212'),
-        'artifact-model': gateway.languageModel('xai/grok-2-1212'),
-      },
-    });
+export const openaiProvider = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+let myProvider: any;
+
+if (isTestEnvironment) {
+  const dynamicImport = new Function('path', 'return import(path)');
+  const {
+    artifactModel,
+    chatModel,
+    reasoningModel,
+    titleModel,
+  } = await dynamicImport('./models.test');
+
+  myProvider = customProvider({
+    languageModels: {
+      'openai/gpt-4o-mini': chatModel,
+      'gpt-4o-mini': chatModel,
+      'openai/o4-mini': reasoningModel,
+      'o4-mini': reasoningModel,
+      'title-model': titleModel,
+      'artifact-model': artifactModel,
+    },
+  });
+} else {
+  myProvider = {
+    languageModel(id: string) {
+      if (id === 'title-model') {
+        return openaiProvider.responses('gpt-4o-mini');
+      }
+      if (id === 'artifact-model') {
+        return openaiProvider.responses('gpt-4.1-mini');
+      }
+      return id.includes('/') ? gw(id) : openaiProvider.responses(id);
+    },
+  };
+}
+
+export { myProvider, gw };

@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { auth } from '@/app/(auth)/auth';
 import type { NextRequest } from 'next/server';
 import { getChatsByUserId } from '@/lib/db/queries';

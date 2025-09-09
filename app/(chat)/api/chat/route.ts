@@ -24,7 +24,7 @@ import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
-import { myProvider } from '@/lib/ai/providers';
+import { gw, openaiProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
@@ -35,10 +35,16 @@ import {
 import { after } from 'next/server';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
-import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
 
+export const runtime = 'nodejs';
+
 export const maxDuration = 60;
+
+const DEFAULT_VECTOR_STORE_IDS = (process.env.OPENAI_VECTOR_STORE_IDS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -76,13 +82,25 @@ export async function POST(request: Request) {
     const {
       id,
       message,
-      selectedChatModel,
+      selectedModelId,
+      apiType,
       selectedVisibilityType,
+      previousResponseId,
+      vectorStoreIds,
+      fileFilters,
+      instructions,
+      toolChoice,
     }: {
       id: string;
       message: ChatMessage;
-      selectedChatModel: ChatModel['id'];
+      selectedModelId: string;
+      apiType: 'gateway-chat' | 'openai-responses';
       selectedVisibilityType: VisibilityType;
+      previousResponseId?: string;
+      vectorStoreIds?: string[];
+      fileFilters?: any;
+      instructions?: string;
+      toolChoice?: any;
     } = requestBody;
 
     const session = await auth();
@@ -149,39 +167,72 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
+    const vectorStoreIdsResolved = vectorStoreIds ?? DEFAULT_VECTOR_STORE_IDS;
+    const filters = fileFilters;
+    let responseId: string | undefined;
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
-        const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+        const base = {
+          system: systemPrompt({ selectedModelId, requestHints }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
           experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: 'stream-text',
           },
-        });
+        } as const;
 
-        result.consumeStream();
+        const commonTools = {
+          getWeather,
+          createDocument: createDocument({ session, dataStream }),
+          updateDocument: updateDocument({ session, dataStream }),
+          requestSuggestions: requestSuggestions({ session, dataStream }),
+        } as const;
+
+        const responsesTools = {
+          web_search_preview: openaiProvider.tools.webSearchPreview({}),
+          file_search: openaiProvider.tools.fileSearch({
+            vectorStoreIds: vectorStoreIdsResolved,
+            ...(filters && { filters }),
+          }),
+        } as const;
+
+        const tools = { ...commonTools, ...responsesTools } as const;
+
+        const result =
+          apiType === 'gateway-chat'
+            ? streamText({
+                ...base,
+                model: gw(selectedModelId),
+                experimental_activeTools: selectedModelId.includes('o4')
+                  ? []
+                  : ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'],
+                tools: commonTools,
+                toolChoice: toolChoice ?? 'auto',
+              })
+            : streamText({
+                ...base,
+                model: openaiProvider.responses(selectedModelId),
+                tools,
+                toolChoice: toolChoice ?? 'auto',
+                providerOptions: {
+                  openai: {
+                    ...(instructions && { instructions }),
+                    ...(previousResponseId && { previousResponseId }),
+                    include: ['file_search_call.results'],
+                    reasoning: { effort: 'high' },
+                  },
+                },
+              });
+
+        result.consumeStream().then(() => {
+          responseId =
+            (result as any).response?.providerMetadata?.openai?.responseId as
+              | string
+              | undefined;
+        });
 
         dataStream.merge(
           result.toUIMessageStream({
@@ -191,13 +242,25 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
+        if (responseId) {
+          const last = messages[messages.length - 1];
+          if (last && (last as any).role === 'assistant') {
+            ((last as any).attachments as any[] | undefined)?.push?.({
+              responseId,
+            });
+            if (!(last as any).attachments) {
+              (last as any).attachments = [{ responseId }] as any;
+            }
+          }
+        }
+
         await saveMessages({
           messages: messages.map((message) => ({
             id: message.id,
             role: message.role,
             parts: message.parts,
             createdAt: new Date(),
-            attachments: [],
+            attachments: (message as any).attachments ?? [],
             chatId: id,
           })),
         });
