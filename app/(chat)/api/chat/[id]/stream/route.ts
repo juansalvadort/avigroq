@@ -11,12 +11,54 @@ import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
 import { getStreamContext } from '../../route';
 import { differenceInSeconds } from 'date-fns';
+import type { ResumableStreamContext } from 'resumable-stream';
+
+async function getStreamForChat({
+  ctx,
+  streamId,
+  startFromId,
+  emptyDataStream,
+}: {
+  ctx: ResumableStreamContext;
+  streamId: string;
+  startFromId?: string;
+  emptyDataStream: ReadableStream<unknown>;
+}) {
+  const skipCharacters = startFromId ? Number(startFromId) : undefined;
+  return ctx.resumableStream(
+    streamId,
+    () => emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+    skipCharacters,
+  );
+}
+
+function toDataStreamResponse(stream: ReadableStream<any>, {
+  startFromId,
+  status = 200,
+}: {
+  startFromId?: string;
+  status?: number;
+}) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'text/event-stream',
+  };
+  if (startFromId) {
+    headers['X-Start-From-Id'] = startFromId;
+  }
+  return new Response(stream, { status, headers });
+}
 
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: chatId } = await params;
+  const { searchParams } = new URL(request.url);
+  const fromEventId = searchParams.get('fromEventId');
+  const lastEventId =
+    request.headers.get('last-event-id') ||
+    request.headers.get('Last-Event-ID');
+  const startFromId = fromEventId || lastEventId || undefined;
 
   const streamContext = getStreamContext();
   const resumeRequestedAt = new Date();
@@ -67,9 +109,12 @@ export async function GET(
     execute: () => {},
   });
 
-  const stream = await streamContext.resumableStream(recentStreamId, () =>
-    emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
-  );
+  const stream = await getStreamForChat({
+    ctx: streamContext,
+    streamId: recentStreamId,
+    startFromId,
+    emptyDataStream,
+  });
 
   /*
    * For when the generation is streaming during SSR
@@ -80,17 +125,17 @@ export async function GET(
     const mostRecentMessage = messages.at(-1);
 
     if (!mostRecentMessage) {
-      return new Response(emptyDataStream, { status: 200 });
+      return toDataStreamResponse(emptyDataStream, { status: 200 });
     }
 
     if (mostRecentMessage.role !== 'assistant') {
-      return new Response(emptyDataStream, { status: 200 });
+      return toDataStreamResponse(emptyDataStream, { status: 200 });
     }
 
     const messageCreatedAt = new Date(mostRecentMessage.createdAt);
 
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
-      return new Response(emptyDataStream, { status: 200 });
+      return toDataStreamResponse(emptyDataStream, { status: 200 });
     }
 
     const restoredStream = createUIMessageStream<ChatMessage>({
@@ -103,11 +148,8 @@ export async function GET(
       },
     });
 
-    return new Response(
-      restoredStream.pipeThrough(new JsonToSseTransformStream()),
-      { status: 200 },
-    );
+    return toDataStreamResponse(restoredStream, { status: 200 });
   }
 
-  return new Response(stream, { status: 200 });
+  return toDataStreamResponse(stream, { startFromId, status: 200 });
 }
