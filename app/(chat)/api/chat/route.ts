@@ -187,7 +187,7 @@ export async function POST(request: Request) {
     return result.toUIMessageStreamResponse({
       originalMessages: messages,
       generateMessageId: ((part: any) =>
-        part.id ?? part.message?.id ?? crypto.randomUUID()) as any,
+        part?.id ?? part?.message?.id ?? crypto.randomUUID()) as any,
       onFinish: async ({ messages: finalMessages }) => {
         await saveChat({ id, messages: finalMessages });
       },
